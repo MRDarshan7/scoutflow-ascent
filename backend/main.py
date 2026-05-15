@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from agents.planner import PlannerAgent
 from agents.researcher import ResearchAgent
+from agents.validator import ValidationAgent
 from backend.database import check_connection, create_goal, get_all_goals, init_db
 from backend.logging_config import configure_logging
 
@@ -69,3 +70,13 @@ def research_goal(request: PlanRequest) -> dict:
     researcher = ResearchAgent()
     plan = planner.plan_goal(request.query, request.preferences)
     return researcher.research(plan)
+
+
+@app.post("/validate")
+def validate_goal(request: PlanRequest) -> dict:
+    planner = PlannerAgent()
+    researcher = ResearchAgent()
+    validator = ValidationAgent()
+    plan = planner.plan_goal(request.query, request.preferences)
+    research_output = researcher.research(plan)
+    return validator.validate(research_output)
