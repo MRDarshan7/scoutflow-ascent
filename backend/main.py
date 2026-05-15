@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from agents.planner import PlannerAgent
 from backend.database import check_connection, create_goal, get_all_goals, init_db
 from backend.logging_config import configure_logging
 
@@ -22,6 +23,11 @@ app.add_middleware(
 class GoalCreate(BaseModel):
     query: str
     preferences: list[str]
+
+
+class PlanRequest(BaseModel):
+    query: str
+    preferences: list[str] | None = None
 
 
 @app.on_event("startup")
@@ -48,3 +54,9 @@ def add_goal(goal: GoalCreate) -> dict:
 @app.get("/goals")
 def list_goals() -> list[dict]:
     return get_all_goals()
+
+
+@app.post("/plan")
+def plan_goal(request: PlanRequest) -> dict:
+    planner = PlannerAgent()
+    return planner.plan_goal(request.query, request.preferences)
