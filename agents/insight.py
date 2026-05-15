@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from tools.gemini_helper import refine_insights_with_gemini
+
 
 MAX_SUPPORTING_FINDINGS = 5
 SIGNAL_RULES = {
@@ -55,7 +57,7 @@ class InsightAgent:
         recommendations = _recommendations_for_signals(signals)
         supporting_findings = findings[:MAX_SUPPORTING_FINDINGS]
 
-        return {
+        insight_output = {
             "goal": goal,
             "summary": _summary(goal, signals, findings),
             "signals_detected": signals,
@@ -68,6 +70,7 @@ class InsightAgent:
                 "generated_at": datetime.now().replace(microsecond=0).isoformat(),
             },
         }
+        return _apply_gemini_insight_refinement(validated_output, insight_output)
 
 
 def _detect_signals(findings: list[dict]) -> list[str]:
@@ -84,6 +87,30 @@ def _detect_signals(findings: list[dict]) -> list[str]:
 
     ordered_signals = sorted(signal_scores, key=signal_scores.get, reverse=True)
     return ordered_signals
+
+
+def _apply_gemini_insight_refinement(validated_output: dict, insight_output: dict) -> dict:
+    refinement = refine_insights_with_gemini(validated_output, insight_output)
+    if not refinement:
+        return insight_output
+
+    refined_output = dict(insight_output)
+
+    summary = refinement.get("summary")
+    if isinstance(summary, str) and summary.strip():
+        refined_output["summary"] = summary.strip()
+
+    implications = _string_list(refinement.get("business_implications", []))
+    if implications:
+        refined_output["business_implications"] = implications
+
+    recommendations = _string_list(refinement.get("recommendations", []))
+    if recommendations:
+        refined_output["recommendations"] = recommendations
+        refined_output["metadata"] = dict(refined_output["metadata"])
+        refined_output["metadata"]["recommendations_count"] = len(recommendations)
+
+    return refined_output
 
 
 def _implications_for_signals(signals: list[str]) -> list[str]:
@@ -162,3 +189,9 @@ def _unique(items: list[str]) -> list[str]:
             seen.add(item)
             result.append(item)
     return result
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]

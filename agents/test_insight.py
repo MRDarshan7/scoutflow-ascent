@@ -35,9 +35,9 @@ def run_example(query: str) -> None:
 
 
 def main() -> None:
+    run_example("Tell about latest GPU market")
     run_example("Track AI startups in India")
-    run_example("Track open source AI competitors")
-    run_example("Track latest indie game startups")
+    run_example("Monitor fintech competitors in Southeast Asia")
 
 
 if __name__ == "__main__":

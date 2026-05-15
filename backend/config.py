@@ -11,6 +11,7 @@ load_dotenv()
 class Settings:
     app_env: str = os.getenv("APP_ENV", "development")
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
 
 
 settings = Settings()

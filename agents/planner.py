@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from tools.gemini_helper import refine_plan_with_gemini
+
 
 class PlannerAgent:
     def plan_goal(self, goal_query: str, preferences: list[str] | None = None) -> dict:
@@ -19,7 +21,7 @@ class PlannerAgent:
             )
 
         if _contains_any(query_text, ["competitor", "market", "industry"]):
-            targets.extend(["acquisitions", "pricing", "launches"])
+            targets.extend(["acquisitions", "pricing", "launches", "market_share", "availability"])
             monitoring_focus.extend(
                 ["competitor movement", "market shifts", "product launches"]
             )
@@ -39,16 +41,18 @@ class PlannerAgent:
         source_priority = _source_priority(query_text, sources)
         priority = "high" if _is_high_priority(query_text) else "medium"
 
-        return {
+        plan = {
             "goal": goal_query,
             "targets": targets,
             "sources": sources,
             "research_queries": research_queries,
             "monitoring_focus": monitoring_focus,
+            "entities": [],
             "source_priority": source_priority,
             "priority": priority,
             "generated_at": datetime.now().replace(microsecond=0).isoformat(),
         }
+        return _apply_gemini_plan_refinement(goal_query, plan)
 
 
 def _sources_for_targets(targets: list[str]) -> list[str]:
@@ -62,6 +66,8 @@ def _sources_for_targets(targets: list[str]) -> list[str]:
             "acquisitions",
             "pricing",
             "releases",
+            "market_share",
+            "availability",
         }:
             sources.extend(["google_news", "rss"])
         if target in {"github", "engineering_activity"}:
@@ -83,9 +89,36 @@ def _generate_research_queries(goal: str, query_text: str, targets: list[str]) -
         elif target == "releases":
             queries.append(f"{subject} releases")
         else:
-            queries.append(f"{subject} {target}")
+            queries.append(f"{subject} {_target_search_phrase(target)}")
 
     return _unique(queries)[:8]
+
+
+def _apply_gemini_plan_refinement(goal_query: str, plan: dict) -> dict:
+    refinement = refine_plan_with_gemini(goal_query, plan)
+    if not refinement:
+        return plan
+
+    refined_plan = dict(plan)
+    refined_plan["targets"] = _unique(
+        plan["targets"] + _string_list(refinement.get("extra_targets", []))
+    )
+    refined_plan["research_queries"] = _unique(
+        plan["research_queries"] + _string_list(refinement.get("extra_queries", []))
+    )[:8]
+    refined_plan["monitoring_focus"] = _unique(
+        plan["monitoring_focus"] + _string_list(refinement.get("monitoring_focus", []))
+    )
+    refined_plan["entities"] = _unique(_string_list(refinement.get("entities", [])))
+    refined_plan["sources"] = _unique(plan["sources"] + _sources_for_targets(refined_plan["targets"]))
+    refined_plan["source_priority"] = _source_priority(
+        _normalize(goal_query), refined_plan["sources"]
+    )
+    return refined_plan
+
+
+def _target_search_phrase(target: str) -> str:
+    return target.replace("_", " ")
 
 
 def _query_subject(goal: str, query_text: str) -> str:
@@ -96,6 +129,7 @@ def _query_subject(goal: str, query_text: str) -> str:
         "watch",
         "find",
         "research",
+        "tell",
         "latest",
         "the",
         "a",
@@ -162,3 +196,9 @@ def _unique(items: list[str]) -> list[str]:
             result.append(clean_item)
 
     return result
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
