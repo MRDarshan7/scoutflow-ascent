@@ -35,7 +35,9 @@ def run_example(query: str) -> None:
 
 
 def main() -> None:
-    run_example("Tell about latest GPU market")
+    run_example(
+        "Tell me about the latest GPU market, major players, pricing trends, AI demand, and what changes are happening recently"
+    )
     run_example("Track AI startups in India")
     run_example("Monitor fintech competitors in Southeast Asia")
 

@@ -96,6 +96,12 @@ def _apply_gemini_insight_refinement(validated_output: dict, insight_output: dic
 
     refined_output = dict(insight_output)
 
+    signals = _valid_signal_labels(refinement.get("signals", []))
+    if signals:
+        refined_output["signals_detected"] = signals
+        refined_output["metadata"] = dict(refined_output["metadata"])
+        refined_output["metadata"]["signals_count"] = len(signals)
+
     summary = refinement.get("summary")
     if isinstance(summary, str) and summary.strip():
         refined_output["summary"] = summary.strip()
@@ -111,6 +117,29 @@ def _apply_gemini_insight_refinement(validated_output: dict, insight_output: dic
         refined_output["metadata"]["recommendations_count"] = len(recommendations)
 
     return refined_output
+
+
+def _valid_signal_labels(value: object) -> list[str]:
+    labels = []
+    banned = {
+        "future transformation",
+        "technology revolution",
+        "business excellence",
+    }
+
+    if not isinstance(value, list):
+        return []
+
+    for item in value:
+        label = str(item).strip()
+        word_count = len(label.split())
+        if not label or not 2 <= word_count <= 5:
+            continue
+        if label.lower() in banned:
+            continue
+        labels.append(label)
+
+    return _unique(labels)[:5]
 
 
 def _implications_for_signals(signals: list[str]) -> list[str]:

@@ -48,6 +48,7 @@ Current deterministic insight:
 
 Return this exact JSON shape:
 {{
+  "signals": [],
   "summary": "",
   "business_implications": [],
   "recommendations": []
@@ -56,6 +57,9 @@ Return this exact JSON shape:
 Rules:
 - Ground everything only in the validated findings.
 - Do not invent companies, funding, dates, launches, or events.
+- signals must be 3 to 5 concise labels, each 2 to 5 words.
+- signals must reflect actual market movement in the findings.
+- Avoid generic buzzwords like Future Transformation, Technology Revolution, Business Excellence.
 - Improve wording and business context.
 - Keep recommendations practical.
 - If evidence is weak, be cautious.
