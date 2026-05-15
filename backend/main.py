@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from agents.planner import PlannerAgent
+from agents.researcher import ResearchAgent
 from backend.database import check_connection, create_goal, get_all_goals, init_db
 from backend.logging_config import configure_logging
 
@@ -60,3 +61,11 @@ def list_goals() -> list[dict]:
 def plan_goal(request: PlanRequest) -> dict:
     planner = PlannerAgent()
     return planner.plan_goal(request.query, request.preferences)
+
+
+@app.post("/research")
+def research_goal(request: PlanRequest) -> dict:
+    planner = PlannerAgent()
+    researcher = ResearchAgent()
+    plan = planner.plan_goal(request.query, request.preferences)
+    return researcher.research(plan)
