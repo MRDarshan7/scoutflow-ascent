@@ -4,6 +4,9 @@ from tools.gemini_helper import refine_insights_with_gemini
 
 
 MAX_SUPPORTING_FINDINGS = 5
+MAX_RECOMMENDED_ACTIONS = 5
+DEFAULT_ACTION_PRIORITIES = ("high", "high", "medium", "medium", "low")
+VALID_ACTION_PRIORITIES = {"high", "medium", "low"}
 SIGNAL_RULES = {
     "Funding Growth": {
         "keywords": {"raise", "raises", "raised", "funding", "investment", "million", "capital", "fund"},
@@ -57,16 +60,20 @@ class InsightAgent:
         recommendations = _recommendations_for_signals(signals)
         supporting_findings = findings[:MAX_SUPPORTING_FINDINGS]
 
+        recommended_actions = _default_recommended_actions(goal, signals, findings)
+
         insight_output = {
             "goal": goal,
             "summary": _summary(goal, signals, findings),
             "signals_detected": signals,
             "business_implications": business_implications,
             "recommendations": recommendations,
+            "recommended_actions": recommended_actions,
             "supporting_findings": supporting_findings,
             "metadata": {
                 "signals_count": len(signals),
                 "recommendations_count": len(recommendations),
+                "actions_count": len(recommended_actions),
                 "generated_at": datetime.now().replace(microsecond=0).isoformat(),
             },
         }
@@ -115,12 +122,20 @@ def _apply_gemini_insight_refinement(validated_output: dict, insight_output: dic
         refined_output["business_implications"] = implications
 
     recommendations = _string_list(
-        _first_present(refinement, ["recommendations", "recommended_actions", "actions"])
+        _first_present(refinement, ["recommendations"])
     )
     if recommendations:
         refined_output["recommendations"] = recommendations
         refined_output["metadata"] = dict(refined_output["metadata"])
         refined_output["metadata"]["recommendations_count"] = len(recommendations)
+
+    actions = _valid_actions(
+        _first_present(refinement, ["recommended_actions", "actions"])
+    )
+    if actions:
+        refined_output["recommended_actions"] = actions
+        refined_output["metadata"] = dict(refined_output["metadata"])
+        refined_output["metadata"]["actions_count"] = len(actions)
 
     return refined_output
 
@@ -224,6 +239,82 @@ def _unique(items: list[str]) -> list[str]:
             seen.add(item)
             result.append(item)
     return result
+
+
+def _default_recommended_actions(
+    goal: str, signals: list[str], findings: list[dict]
+) -> list[dict]:
+    """Lightweight deterministic actions used when Gemini is unavailable."""
+    if not findings:
+        return []
+
+    actions: list[dict] = []
+    for index, signal in enumerate(signals[:MAX_RECOMMENDED_ACTIONS]):
+        rule = SIGNAL_RULES.get(signal)
+        if not rule:
+            continue
+        priority = (
+            DEFAULT_ACTION_PRIORITIES[index]
+            if index < len(DEFAULT_ACTION_PRIORITIES)
+            else "low"
+        )
+        actions.append(
+            {
+                "priority": priority,
+                "action": rule["recommendation"],
+                "why": rule["implication"],
+                "expected_impact": "Earlier detection of changes relevant to your goal.",
+            }
+        )
+
+    if not actions:
+        topic = goal.strip() or "this topic"
+        actions.append(
+            {
+                "priority": "medium",
+                "action": f"Monitor news and updates about {topic} on a regular cadence.",
+                "why": "Validated findings exist but no strong signal pattern emerged yet.",
+                "expected_impact": "Earlier awareness of meaningful changes worth investigating.",
+            }
+        )
+
+    return actions
+
+
+def _valid_actions(value: object) -> list[dict]:
+    """Filter Gemini-supplied actions to a safe, well-formed shape."""
+    if not isinstance(value, list):
+        return []
+
+    cleaned: list[dict] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        priority = str(item.get("priority", "")).strip().lower()
+        action = str(item.get("action", "")).strip()
+        why = str(item.get("why") or item.get("reason") or "").strip()
+        impact = str(
+            item.get("expected_impact")
+            or item.get("impact")
+            or item.get("outcome")
+            or ""
+        ).strip()
+
+        if priority not in VALID_ACTION_PRIORITIES:
+            continue
+        if not action or not why or not impact:
+            continue
+
+        cleaned.append(
+            {
+                "priority": priority,
+                "action": action,
+                "why": why,
+                "expected_impact": impact,
+            }
+        )
+
+    return cleaned[:MAX_RECOMMENDED_ACTIONS]
 
 
 def _string_list(value: object) -> list[str]:

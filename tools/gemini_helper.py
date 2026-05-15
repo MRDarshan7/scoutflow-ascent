@@ -64,7 +64,15 @@ Return this exact JSON shape:
   "signals": [],
   "summary": "",
   "business_implications": [],
-  "recommendations": []
+  "recommendations": [],
+  "recommended_actions": [
+    {{
+      "priority": "high|medium|low",
+      "action": "",
+      "why": "",
+      "expected_impact": ""
+    }}
+  ]
 }}
 
 Rules:
@@ -78,7 +86,12 @@ Rules:
 - Write the summary like an analyst-grade intelligence brief.
 - Make business implications query-aware and evidence-grounded.
 - Keep recommendations practical and tied to observed findings.
-- If evidence is weak, be cautious.
+- recommended_actions must contain 3 to 5 items, ordered most important first.
+- Each action must have priority (high|medium|low), a short imperative action sentence, a one-line why grounded in the findings, and a one-line expected_impact.
+- Actions must read like analyst guidance, not financial advice. Prefer "Monitor X", "Track Y", "Evaluate Z", "Compare A vs B", "Review supplier exposure".
+- Never recommend buying, selling, or holding any specific stock, token, or asset.
+- Never invent metrics, prices, percentages, or company names that are not in the findings.
+- If evidence is weak, be cautious and reflect that in priorities.
 """
     return _generate_json(prompt)
 
