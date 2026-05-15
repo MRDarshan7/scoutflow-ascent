@@ -96,21 +96,27 @@ def _apply_gemini_insight_refinement(validated_output: dict, insight_output: dic
 
     refined_output = dict(insight_output)
 
-    signals = _valid_signal_labels(refinement.get("signals", []))
+    signals = _valid_signal_labels(
+        _first_present(refinement, ["signals", "signals_detected", "contextual_signals"])
+    )
     if signals:
         refined_output["signals_detected"] = signals
         refined_output["metadata"] = dict(refined_output["metadata"])
         refined_output["metadata"]["signals_count"] = len(signals)
 
-    summary = refinement.get("summary")
+    summary = _first_present(refinement, ["summary", "contextual_summary", "analyst_summary"])
     if isinstance(summary, str) and summary.strip():
         refined_output["summary"] = summary.strip()
 
-    implications = _string_list(refinement.get("business_implications", []))
+    implications = _string_list(
+        _first_present(refinement, ["business_implications", "implications"])
+    )
     if implications:
         refined_output["business_implications"] = implications
 
-    recommendations = _string_list(refinement.get("recommendations", []))
+    recommendations = _string_list(
+        _first_present(refinement, ["recommendations", "recommended_actions", "actions"])
+    )
     if recommendations:
         refined_output["recommendations"] = recommendations
         refined_output["metadata"] = dict(refined_output["metadata"])
@@ -131,7 +137,7 @@ def _valid_signal_labels(value: object) -> list[str]:
         return []
 
     for item in value:
-        label = str(item).strip()
+        label = _string_from_item(item, ["label", "signal", "name", "title"])
         word_count = len(label.split())
         if not label or not 2 <= word_count <= 5:
             continue
@@ -223,4 +229,28 @@ def _unique(items: list[str]) -> list[str]:
 def _string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
-    return [str(item).strip() for item in value if str(item).strip()]
+    return [
+        text
+        for item in value
+        if (text := _string_from_item(item, ["text", "summary", "recommendation", "implication", "action"]))
+    ]
+
+
+def _first_present(source: dict, keys: list[str]) -> object:
+    for key in keys:
+        if key in source:
+            return source[key]
+    return []
+
+
+def _string_from_item(item: object, preferred_keys: list[str]) -> str:
+    if isinstance(item, str):
+        return item.strip()
+
+    if isinstance(item, dict):
+        for key in preferred_keys:
+            value = item.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    return ""

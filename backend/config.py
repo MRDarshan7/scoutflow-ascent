@@ -15,3 +15,8 @@ class Settings:
 
 
 settings = Settings()
+
+if settings.gemini_api_key:
+    print("Gemini enhancement enabled")
+else:
+    print("Gemini API key missing - fallback mode active")
