@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -6,8 +6,21 @@ from agents.insight import InsightAgent
 from agents.planner import PlannerAgent
 from agents.researcher import ResearchAgent
 from agents.validator import ValidationAgent
-from backend.database import check_connection, create_goal, get_all_goals, init_db
+from backend.database import (
+    check_connection,
+    create_goal,
+    get_alerts,
+    get_all_goals,
+    init_db,
+)
 from backend.logging_config import configure_logging
+from scheduler.monitor import (
+    list_active_monitors,
+    shutdown_scheduler,
+    start_monitor,
+    start_scheduler,
+    stop_monitor,
+)
 from workflow.graph import run_workflow
 
 
@@ -37,6 +50,12 @@ class PlanRequest(BaseModel):
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+def shutdown() -> None:
+    shutdown_scheduler()
 
 
 @app.get("/")
@@ -88,3 +107,36 @@ def validate_goal(request: PlanRequest) -> dict:
 def generate_insights(request: PlanRequest) -> dict:
     final_state = run_workflow(request.query, request.preferences)
     return final_state.get("insights", {})
+
+
+class MonitorStartRequest(BaseModel):
+    interval_minutes: int | None = None
+
+
+@app.post("/monitor/start/{goal_id}")
+def monitor_start(goal_id: int, request: MonitorStartRequest | None = None) -> dict:
+    interval = request.interval_minutes if request else None
+    try:
+        return start_monitor(goal_id, interval)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/monitor/stop/{goal_id}")
+def monitor_stop(goal_id: int) -> dict:
+    return stop_monitor(goal_id)
+
+
+@app.get("/monitor/active")
+def monitor_active() -> list[dict]:
+    return list_active_monitors()
+
+
+@app.get("/alerts")
+def list_alerts(limit: int = 50) -> list[dict]:
+    return get_alerts(limit=limit)
+
+
+@app.get("/alerts/{goal_id}")
+def list_alerts_for_goal(goal_id: int, limit: int = 50) -> list[dict]:
+    return get_alerts(goal_id=goal_id, limit=limit)
