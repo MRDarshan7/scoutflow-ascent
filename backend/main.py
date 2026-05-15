@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from agents.insight import InsightAgent
 from agents.planner import PlannerAgent
 from agents.researcher import ResearchAgent
 from agents.validator import ValidationAgent
@@ -80,3 +81,15 @@ def validate_goal(request: PlanRequest) -> dict:
     plan = planner.plan_goal(request.query, request.preferences)
     research_output = researcher.research(plan)
     return validator.validate(research_output)
+
+
+@app.post("/insights")
+def generate_insights(request: PlanRequest) -> dict:
+    planner = PlannerAgent()
+    researcher = ResearchAgent()
+    validator = ValidationAgent()
+    insight = InsightAgent()
+    plan = planner.plan_goal(request.query, request.preferences)
+    research_output = researcher.research(plan)
+    validated_output = validator.validate(research_output)
+    return insight.generate_insights(validated_output)
