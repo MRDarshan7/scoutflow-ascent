@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from backend.database import check_connection, init_db
+from backend.database import check_connection, create_goal, get_all_goals, init_db
 from backend.logging_config import configure_logging
 
 
@@ -18,6 +19,11 @@ app.add_middleware(
 )
 
 
+class GoalCreate(BaseModel):
+    query: str
+    preferences: list[str]
+
+
 @app.on_event("startup")
 def startup() -> None:
     init_db()
@@ -32,3 +38,13 @@ def root() -> dict[str, str]:
 def health() -> dict[str, str]:
     check_connection()
     return {"status": "ok", "database": "connected"}
+
+
+@app.post("/goal")
+def add_goal(goal: GoalCreate) -> dict:
+    return create_goal(goal.query, goal.preferences)
+
+
+@app.get("/goals")
+def list_goals() -> list[dict]:
+    return get_all_goals()
