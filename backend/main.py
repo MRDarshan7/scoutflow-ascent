@@ -8,6 +8,7 @@ from agents.researcher import ResearchAgent
 from agents.validator import ValidationAgent
 from backend.database import check_connection, create_goal, get_all_goals, init_db
 from backend.logging_config import configure_logging
+from workflow.graph import run_workflow
 
 
 configure_logging()
@@ -85,11 +86,5 @@ def validate_goal(request: PlanRequest) -> dict:
 
 @app.post("/insights")
 def generate_insights(request: PlanRequest) -> dict:
-    planner = PlannerAgent()
-    researcher = ResearchAgent()
-    validator = ValidationAgent()
-    insight = InsightAgent()
-    plan = planner.plan_goal(request.query, request.preferences)
-    research_output = researcher.research(plan)
-    validated_output = validator.validate(research_output)
-    return insight.generate_insights(validated_output)
+    final_state = run_workflow(request.query, request.preferences)
+    return final_state.get("insights", {})
