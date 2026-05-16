@@ -22,6 +22,7 @@ from backend.database import (
     save_alert,
     save_monitoring_snapshot,
 )
+from tools.webhook_sender import dispatch_alert
 from workflow.graph import run_workflow
 
 
@@ -175,6 +176,12 @@ def run_monitoring_job(goal_id: int) -> None:
                 saved["severity"],
                 saved["title"],
             )
+            try:
+                dispatch_alert(saved, goal)
+            except Exception as exc:  # pragma: no cover - belt and braces
+                logger.exception(
+                    "Webhook dispatch failed for alert_id=%s: %s", saved["id"], exc
+                )
 
 
 def detect_changes(

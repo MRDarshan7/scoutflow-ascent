@@ -10,3 +10,5 @@ lxml_html_clean
 google-generativeai
 langgraph
 apscheduler
+pytest
+httpx

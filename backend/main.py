@@ -14,6 +14,7 @@ from backend.database import (
     init_db,
 )
 from backend.logging_config import configure_logging
+from backend.webhook_routes import router as webhook_router
 from scheduler.monitor import (
     list_active_monitors,
     shutdown_scheduler,
@@ -21,6 +22,7 @@ from scheduler.monitor import (
     start_scheduler,
     stop_monitor,
 )
+from storage.webhook_store import init_webhook_table
 from workflow.graph import run_workflow
 
 
@@ -47,9 +49,13 @@ class PlanRequest(BaseModel):
     preferences: list[str] | None = None
 
 
+app.include_router(webhook_router)
+
+
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+    init_webhook_table()
     start_scheduler()
 
 
