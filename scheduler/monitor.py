@@ -35,8 +35,11 @@ def _job_id(goal_id: int) -> str:
     return f"monitor:{goal_id}"
 
 
-def _interval_minutes() -> int:
-    return max(1, int(settings.monitor_interval_minutes))
+MIN_INTERVAL_MINUTES = 0.08  # ~5 seconds, matches API validation floor
+
+
+def _interval_minutes() -> float:
+    return max(MIN_INTERVAL_MINUTES, float(settings.monitor_interval_minutes))
 
 
 def start_scheduler() -> None:
@@ -71,14 +74,19 @@ def _require_scheduler() -> BackgroundScheduler:
     return _scheduler
 
 
-def start_monitor(goal_id: int, interval_minutes: int | None = None) -> dict:
+def start_monitor(
+    goal_id: int, interval_minutes: float | None = None
+) -> dict:
     """Start (or replace) a recurring monitoring job for a goal."""
     goal = get_goal_by_id(goal_id)
     if goal is None:
         raise LookupError(f"goal_id {goal_id} not found")
 
     scheduler = _require_scheduler()
-    minutes = max(1, int(interval_minutes)) if interval_minutes else _interval_minutes()
+    if interval_minutes is not None:
+        minutes = max(MIN_INTERVAL_MINUTES, float(interval_minutes))
+    else:
+        minutes = _interval_minutes()
     job_id = _job_id(goal_id)
 
     scheduler.add_job(

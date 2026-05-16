@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agents.insight import InsightAgent
 from agents.planner import PlannerAgent
@@ -116,7 +116,16 @@ def generate_insights(request: PlanRequest) -> dict:
 
 
 class MonitorStartRequest(BaseModel):
-    interval_minutes: int | None = None
+    interval_minutes: float | None = Field(
+        default=None,
+        ge=0.08,
+        description=(
+            "Polling interval in minutes. Accepts decimals for fast demos "
+            "(e.g. 0.2 = ~12s, 0.5 = ~30s, 1 = 1 min). Minimum 0.08 (~5s). "
+            "Omit or null to use the server default."
+        ),
+        examples=[0.2, 0.5, 1, 5],
+    )
 
 
 @app.post("/monitor/start/{goal_id}")
